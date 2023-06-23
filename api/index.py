@@ -42,7 +42,20 @@ def get_upc():
     else:
         product_name = get_product_upc(upc)
 
-    return product_name["payload"]["Items"][0]["AttributeSets"][0]
+    product_name = (product_name["payload"]["Items"])
+
+    new_data = []
+    for item in product_name[:3]:
+        entry = {
+            "Title": item["AttributeSets"][0]["Title"],
+            "SmallImage": item["AttributeSets"][0]["SmallImage"],
+            "Brand": item["AttributeSets"][0]["Brand"]
+        }
+        new_data.append(entry)
+
+    new_data_json = json.dumps(new_data, indent=4)
+    
+    return new_data_json
 
 @app.route('/')
 def home():
