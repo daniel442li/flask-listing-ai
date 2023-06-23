@@ -45,7 +45,7 @@ def get_upc():
     product_name = (product_name["payload"]["Items"])
 
     new_data = []
-    for item in product_name[:3]:
+    for item in product_name[:10]:
         entry = {
             "title": item["AttributeSets"][0]["Title"],
             "smallimage": item["AttributeSets"][0]["SmallImage"]["URL"],
