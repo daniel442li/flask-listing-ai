@@ -46,15 +46,18 @@ def get_upc():
 
     new_data = []
     for item in product_name[:10]:
+        title = item["AttributeSets"][0].get("Title", "n/a")
+        smallimage = item["AttributeSets"][0].get("SmallImage", {}).get("URL", "n/a")
+        brand = item["AttributeSets"][0].get("Brand", "n/a")
+
         entry = {
-            "title": item["AttributeSets"][0]["Title"],
-            "smallimage": item["AttributeSets"][0]["SmallImage"]["URL"],
-            "brand": item["AttributeSets"][0]["Brand"]
+            "title": title,
+            "smallimage": smallimage,
+            "brand": brand
         }
         new_data.append(entry)
 
     new_data_json = json.dumps(new_data, indent=4)
-    
     return new_data_json
 
 @app.route('/')
