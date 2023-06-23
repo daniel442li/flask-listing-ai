@@ -47,9 +47,9 @@ def get_upc():
     new_data = []
     for item in product_name[:3]:
         entry = {
-            "Title": item["AttributeSets"][0]["Title"],
-            "SmallImage": item["AttributeSets"][0]["SmallImage"],
-            "Brand": item["AttributeSets"][0]["Brand"]
+            "title": item["AttributeSets"][0]["Title"],
+            "smallimage": item["AttributeSets"][0]["SmallImage"],
+            "brand": item["AttributeSets"][0]["Brand"]
         }
         new_data.append(entry)
 
