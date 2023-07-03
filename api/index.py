@@ -1,37 +1,13 @@
-from flask import Flask, jsonify, request
-import requests
+from flask import Flask, request
 import json
+from api.product_info import product_info_upc
 
 app = Flask(__name__)
 
 
-def get_oauth():
-    url = "https://api.amazon.com/auth/o2/token"
-
-    payload = "grant_type=refresh_token&refresh_token=Atzr%7CIwEBIFcejNniMjWprAGNEGufkxV03I9mLVMWOvD6NYq6YHlGolk6ZwlgGkZYBskhQLn-TNx2awIDsaraHJuFdNYkZNJDSQCBksEptOc_vmRgdoAGR530SPFg4lsYQ2TX2pCSawLmnnquJvj78e_X4bjaEohG2NHoUT--sK65fIcnX7Dq0wB0jLmGD6bk3kuWOrD6W6_ayGcznBCSfX-SEwjghPAVr9_T0jx3ytFmd6wuX1XytvxqfYIdCSTvZbG8aNwUA_6nsGvQW-mgz5fjJdI6lTUqFIPT_oaJ8RWuyMlOBdz6CqugU4Cy1QbJ_W3MJxea8dQ&client_id=amzn1.application-oa2-client.f1f1085ef8bc481bbffdd1096cc4ca93&client_secret=amzn1.oa2-cs.v1.f653279cdc0a6dc08d3a25c877beb0baf6f4a60a73c50ed59a0ee947feb2c064"
-    headers = {"Content-Type": "application/x-www-form-urlencoded"}
-
-    response = requests.request("POST", url, data=payload, headers=headers)
-
-    (json.loads(response.text))
-    return json.loads(response.text)["access_token"]
-
-def get_product_upc(upc, access_token = get_oauth()):
-    url = "https://sellingpartnerapi-na.amazon.com/catalog/v0/items/"
-
-    querystring = {"MarketplaceId":"ATVPDKIKX0DER","UPC":upc}
-
-    payload = ""
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "user-agent": "Sellraze/0.0 (Language=Go; Platform=Windows/10)",
-        "x-amz-access-token": access_token,
-        "x-amz-date": "20230609T123456Z"
-    }
-
-    response = requests.request("GET", url, data=payload, headers=headers, params=querystring)
-
-    return json.loads(response.text)
+@app.route('/ebay_product_gen', methods=['POST'])
+def ebay_product_gen():
+    pass
 
 @app.route('/product', methods=['GET'])
 def get_upc():
@@ -40,23 +16,83 @@ def get_upc():
     if upc is None:
         return "Error: No UPC field provided. Please specify an UPC."
     else:
-        product_name = get_product_upc(upc)
-
-    product_name = (product_name["payload"]["Items"])
+        product_info = product_info_upc(upc)
 
     new_data = []
-    for item in product_name[:10]:
-        title = item["AttributeSets"][0].get("Title", "n/a")
-        smallimage = item["AttributeSets"][0].get("SmallImage", {}).get("URL", "n/a")
-        brand = item["AttributeSets"][0].get("Brand", "n/a")
+    # Go through each item in the JSON data
+    for index, item in enumerate(product_info['items']):
+        if index >= 10:
+            break
+        
+        try:
+            brand = item['attributes']['brand'][0]['value']
+        except KeyError:
+            print("Failed to find key 'brand' in item.")
+            brand = None
+            
+        try:
+            product_name = item['attributes']['item_name'][0]['value']
+        except KeyError:
+            print("Failed to find key 'name' in item.")
+            product_name = None
 
+        try:
+            first_image = item['images'][0]['images'][0]['link']
+        except KeyError:
+            print("Failed to find key 'first_image' in item.")
+            first_image = None
+
+        try: 
+            if "product_description" in item["attributes"]:
+                product_description = item["attributes"]["product_description"][0]["value"]
+            else:
+                product_description = [bullet["value"] for bullet in item["attributes"]["bullet_point"]]
+                product_description = "\n".join(product_description)
+        except:
+            print("Failed to find key 'product_description' in item.")
+            product_description = None
+        
+        try:
+            classification = item['summaries'][0]['browseClassification']['displayName']
+        except KeyError:
+            print(item['summaries'][0])
+            print("Failed to find key 'browseClassification' in item.")
+            classification = None
+
+        try:
+            item_weight = item['attributes']['item_weight'][0]
+            weight = f"{item_weight['value']} {item_weight['unit']}"
+        except KeyError:
+            print("Failed to find key 'weight' in item.")
+            weight = None
+
+        try:
+            item_dimensions = item['attributes']['item_dimensions'][0]
+            dimensions = f"{item_dimensions['length']['value']} x {item_dimensions['width']['value']} x {item_dimensions['height']['value']} {item_dimensions['height']['unit']}"
+        except KeyError:
+            print("Failed to find key 'dimensions' in item.")
+            dimensions = None
+
+        try:
+            item_price = item['attributes']['list_price'][0]
+            price = f"{item_price['value']} {item_price['currency']}"
+        except KeyError:
+            print("Failed to find key 'list_price' in item.")
+            price = None
+
+        # Create a dictionary with the brand, name and image, and add it to your list
         entry = {
-            "title": title,
-            "smallimage": smallimage,
-            "brand": brand
+        "title": product_name,
+        "smallimage": first_image,
+        "brand": brand,
+        "product_description": product_description,
+        'classification': classification,
+        'weight': weight,
+        'dimensions': dimensions,
+        'price': price
         }
         new_data.append(entry)
-
+    
     new_data_json = json.dumps(new_data, indent=4)
     return new_data_json
 
@@ -67,3 +103,8 @@ def home():
 @app.route('/ping')
 def about():
     return 'pong mf'
+
+#Comment this out when pushing to prod
+# if __name__ == "__main__":
+#     app.run(debug=True)
+#     print("Flask server running on http://localhost:5000") 
