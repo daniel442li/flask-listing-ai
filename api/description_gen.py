@@ -1,24 +1,22 @@
-import api.constants
-import requests
+from dotenv import load_dotenv, find_dotenv
 import json
+load_dotenv(find_dotenv())
 
-def description_gen(description):
-    description = "bullet points only key ideas " + description
+import time
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + constants.api_key
-    }
 
-    data = {
-        "model": "gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": description}],
-        "temperature": 0.7
-    }
 
-    url = "https://api.openai.com/v1/chat/completions"
-    response = requests.post(url, headers=headers, json=data)
-    response_data = json.loads(response.text)
+def product_gen(prod, chat, chat_prompt):
+    
+    a = time.time()
 
-    # Process the response data as needed
-    return response_data['choices'][0]['message']['content']
+    # get a chat completion from the formatted messages
+    x = chat(
+        chat_prompt.format_prompt(
+        text=prod
+        ).to_messages()
+    )
+
+    return json.loads(x.content)
+
+

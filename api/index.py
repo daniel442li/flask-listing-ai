@@ -1,40 +1,57 @@
 from flask import Flask, request
 import json
+
 from api.product_info import product_info_upc
 from api.description_gen import description_gen
 from api.category_aspect_gen import get_category, get_aspects
+from api.description_gen import product_gen
+
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+)
 
 app = Flask(__name__)
+
+chat = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+template = """
+            Wrap all key points into a JSON format.
+            If it isn't in the product, you will return N/A in the JSON. NO GUESSWORK
+
+            """
+system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+human_template = """
+You are an e-commerce assistant making listings for this product:
+{text}
+You will then extract the quantity, size, new/old, brand, color, and create maximum three tags into a JSON.
+You will then create a title with this structure: Brand + Gender + Product Type + Attributes (color, size, material) . Put nothing if you don't have information.
+
+and a product description that only displays key information in a bulleted list. provide a description but do not make up anything.
+
+"""
+human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+chat_prompt = ChatPromptTemplate.from_messages(
+        [system_message_prompt, human_message_prompt]
+    )
 
 
 from flask import request, jsonify
 
-@app.route('/ebay_gen_clothing', methods=['POST'])
-def ebay_product_gen_clothing():
-    # Parse JSON from the incoming request
-    data = request.get_json()
+@app.route('/product_gen', methods=['GET'])
+def product():
+    # Parse product from the incoming request
+    product = request.args.get('product', None)
 
-    # Extract data from JSON
-    brand = data.get('brand')
-    age = data.get('age')
-    style = data.get('style')
-    size = data.get('size')
-    color = data.get('color')
-    product_description = data.get('product_description')
+    if product is None:
+        return "Error: No product field provided. Please specify a product."
+    else:
+        product_info = product_gen(product, chat, chat_prompt)
 
-    constructed_title = f"{brand} {age} {style} {size} {color}"
-    description = description_gen(product_description)
-    category_tree_str, leaf_category_id = get_category(constructed_title)
-    aspects = get_aspects(leaf_category_id)
 
-    # Return the response as JSON
-    return jsonify({
-        "constructed_title": constructed_title,
-        "description": description,
-        "category_tree_str": category_tree_str,
-        "aspects": aspects
-    })
-
+    return product_info
 
 @app.route('/product', methods=['GET'])
 def get_upc():
@@ -132,6 +149,6 @@ def about():
     return 'pong mf'
 
 #Comment this out when pushing to prod
-# if __name__ == "__main__":
-#     app.run(debug=True)
-#     print("Flask server running on http://localhost:5000") 
+if __name__ == "__main__":
+    app.run(debug=True)
+    print("Flask server running on http://localhost:5000") 
